@@ -59,9 +59,13 @@ public class BookDAO {
         try (Connection conn = DBUtil.getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setLong(1, id);
+
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? Optional.of(mapRow(rs)) : Optional.empty();
+                return rs.next()
+                        ? Optional.of(mapRow(rs))
+                        : Optional.empty();
             }
+
         } catch (SQLException e) {
             throw new DataAccessException("查詢藏書失敗", e);
         }
@@ -90,26 +94,102 @@ public class BookDAO {
     /** 全部藏書，依書名排序。 */
     public List<Book> findAll() {
         String sql = "SELECT * FROM books ORDER BY title";
+
         try (Connection conn = DBUtil.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql);
-                ResultSet rs = ps.executeQuery()) {
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
             List<Book> list = new ArrayList<>();
+
             while (rs.next()) {
                 list.add(mapRow(rs));
             }
+
             return list;
+
         } catch (SQLException e) {
             throw new DataAccessException("列出藏書失敗", e);
         }
     }
 
     /**
-     * 依書名／作者／類型組合條件查詢
+     * 依書名／作者／類型組合條件查詢 （F5）
      * 任一參數為 null 或空字串代表「該條件不限」。
      * SQL 骨架動態拼接，但值一律走佔位符。
      */
     public List<Book> search(String title, String author, BookType type) {
-        return null;
+        StringBuilder sql =
+                new StringBuilder("SELECT * FROM books WHERE 1 = 1");
+
+        List<Object> params = new ArrayList<>();
+
+        if (title != null && !title.isBlank()) {
+            sql.append(" AND title LIKE ?");
+            params.add("%" + title.trim() + "%");
+        }
+
+        if (author != null && !author.isBlank()) {
+            sql.append(" AND author LIKE ?");
+            params.add("%" + author.trim() + "%");
+        }
+
+        if (type != null) {
+            sql.append(" AND type = ?");
+            params.add(type.name());
+        }
+
+        sql.append(" ORDER BY title");
+
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps =
+                     conn.prepareStatement(sql.toString())) {
+
+            for (int i = 0; i < params.size(); i++) {
+                ps.setObject(i + 1, params.get(i));
+            }
+
+            try (ResultSet rs = ps.executeQuery()) {
+
+                List<Book> list = new ArrayList<>();
+
+                while (rs.next()) {
+                    list.add(mapRow(rs));
+                }
+
+                return list;
+            }
+
+        } catch (SQLException e) {
+            throw new DataAccessException("查詢藏書失敗", e);
+        }
+    }
+
+    /** 借出一份：可用份數 −1（僅在 available_copies > 0 時成立）。 */
+    public void decrementAvailable(long bookId) {
+        String sql = "UPDATE books SET available_copies = available_copies - 1 "
+                + "WHERE id = ? AND available_copies > 0";
+
+        updateCopies(sql, bookId, "扣減可用份數失敗");
+    }
+
+    /** 歸還一份：可用份數 +1（不超過 total_copies）。 */
+    public void incrementAvailable(long bookId) {
+        String sql = "UPDATE books SET available_copies = available_copies + 1 "
+                + "WHERE id = ? AND available_copies < total_copies";
+
+        updateCopies(sql, bookId, "回補可用份數失敗");
+    }
+
+    private void updateCopies(String sql, long bookId, String errorMsg) {
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setLong(1, bookId);
+            ps.executeUpdate();
+
+        } catch (SQLException e) {
+            throw new DataAccessException(errorMsg, e);
+        }
     }
 
     /** 將目前 ResultSet 游標所在列轉為 Book 物件。 */
