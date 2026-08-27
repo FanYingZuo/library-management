@@ -1,0 +1,126 @@
+package com.library.dao;
+
+import com.library.exception.DataAccessException;
+import com.library.model.Book;
+import com.library.model.BookType;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+/**
+ * {@link Book} 的資料存取物件。
+ * <p>
+ * 職責只有一個：物件 ↔ 資料列的轉換（CRUD）。
+ * 不做業務驗證、不判斷重複 —— 那些屬於 Service 層。
+ * 所有查詢一律使用 {@link PreparedStatement} 佔位符，杜絕 SQL 注入。
+ */
+public class BookDAO {
+
+    /** 新增藏書，並將資料庫產生的主鍵回填到傳入物件。 */
+    public void insert(Book book) {
+        String sql = """
+                INSERT INTO books
+                    (isbn, title, author, type, total_copies, available_copies)
+                VALUES (?, ?, ?, ?, ?, ?)""";
+
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                     sql, Statement.RETURN_GENERATED_KEYS)) {
+
+            ps.setString(1, book.getIsbn());
+            ps.setString(2, book.getTitle());
+            ps.setString(3, book.getAuthor());
+            ps.setString(4, book.getType().name());
+            ps.setInt(5, book.getTotalCopies());
+            ps.setInt(6, book.getAvailableCopies());
+
+            ps.executeUpdate();
+
+            try (ResultSet keys = ps.getGeneratedKeys()) {
+                if (keys.next()) {
+                    book.setId(keys.getLong(1));
+                }
+            }
+
+        } catch (SQLException e) {
+            throw new DataAccessException("新增藏書失敗", e);
+        }
+    }
+
+    /** 依主鍵查詢。 */
+    public Optional<Book> findById(long id) {
+        String sql = "SELECT * FROM books WHERE id = ?";
+        try (Connection conn = DBUtil.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, id);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(mapRow(rs)) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new DataAccessException("查詢藏書失敗", e);
+        }
+    }
+
+    /** 依 ISBN 查詢（用於重複檢查）。 */
+    public Optional<Book> findByIsbn(String isbn) {
+        String sql = "SELECT * FROM books WHERE isbn = ?";
+
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, isbn);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next()
+                        ? Optional.of(mapRow(rs))
+                        : Optional.empty();
+            }
+
+        } catch (SQLException e) {
+            throw new DataAccessException("查詢藏書失敗", e);
+        }
+    }
+
+    /** 全部藏書，依書名排序。 */
+    public List<Book> findAll() {
+        String sql = "SELECT * FROM books ORDER BY title";
+        try (Connection conn = DBUtil.getConnection();
+                PreparedStatement ps = conn.prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
+            List<Book> list = new ArrayList<>();
+            while (rs.next()) {
+                list.add(mapRow(rs));
+            }
+            return list;
+        } catch (SQLException e) {
+            throw new DataAccessException("列出藏書失敗", e);
+        }
+    }
+
+    /**
+     * 依書名／作者／類型組合條件查詢
+     * 任一參數為 null 或空字串代表「該條件不限」。
+     * SQL 骨架動態拼接，但值一律走佔位符。
+     */
+    public List<Book> search(String title, String author, BookType type) {
+        return null;
+    }
+
+    /** 將目前 ResultSet 游標所在列轉為 Book 物件。 */
+    private Book mapRow(ResultSet rs) throws SQLException {
+        return new Book(
+                rs.getLong("id"),
+                rs.getString("isbn"),
+                rs.getString("title"),
+                rs.getString("author"),
+                BookType.valueOf(rs.getString("type")),
+                rs.getInt("total_copies"),
+                rs.getInt("available_copies"));
+    }
+}
