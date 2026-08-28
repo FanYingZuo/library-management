@@ -28,7 +28,7 @@ public enum MemberType {
 
     /** 同時借書上限（本）。 */
     public int borrowLimit() {
-        return borrowLimit;
+        return borrowLimit; 
     }
 
     /** 借期延長天數。教職員為 7，學生為 0。 */

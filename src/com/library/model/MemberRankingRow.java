@@ -1,4 +1,4 @@
-package com.library.model;
+package com.library.model;  
 
 /**
  * 會員借閱排行報表的一列（F6）。純資料傳輸物件。

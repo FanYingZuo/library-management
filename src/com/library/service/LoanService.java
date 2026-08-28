@@ -41,6 +41,8 @@ public class LoanService {
      * @throws BookNotAvailableException    已無可借份數
      * @throws BorrowLimitExceededException 達同時借書上限
      * @throws OverdueBlockException        有逾期未還書籍
+     *
+     *  orElseThrow()如果裡面有東西，就把資料拿出來用；如果是空的，就立刻拋出（Throw）指定的例外（Exception）！
      */
     public Loan borrow(long bookId, long memberId) {
         Book book = bookDao.findById(bookId)
@@ -62,9 +64,9 @@ public class LoanService {
         }
 
         // 到期日 = 今天 + 書的借期 + 會員延長天數
-        LocalDate today = LocalDate.now();
-        LocalDate due = today.plusDays(book.loanDays() + member.extraDays());
-
+        LocalDate today = LocalDate.now(); //取得今天的系統日期
+        LocalDate due = today.plusDays(book.loanDays() + member.extraDays());//today.plusDays()把「今天」加上計算出來的總天數，得出最終的還書期限（due）
+        
         // 先寫紀錄再扣份數；任一檢查失敗都不會走到這裡，不留半套狀態
         Loan loan = loanDao.insert(new Loan(bookId, memberId, today, due));
         if (book.getType().isCopyLimited()) {
@@ -78,6 +80,8 @@ public class LoanService {
      *
      * @param loanId 借閱紀錄 id
      * @throws EntityNotFoundException 找不到未歸還的借閱紀錄
+     * 
+     * orElseThrow()如果裡面有東西，就把資料拿出來用；如果是空的，就立刻拋出（Throw）指定的例外（Exception）！
      */
     public ReturnResult returnBook(long loanId) {
         Loan loan = loanDao.findActiveById(loanId)
@@ -87,8 +91,8 @@ public class LoanService {
                 .orElseThrow(() -> new EntityNotFoundException(
                         "借閱對應的書籍不存在 id=" + loan.getBookId()));
 
-        LocalDate today = LocalDate.now();
-        long overdueDays = loan.overdueDays(today);
+        LocalDate today = LocalDate.now(); //取得今天的系統日期
+        long overdueDays = loan.overdueDays(today);//loan 內部會拿今天的日期去和原本的「應還期限」做比對
 
         // 罰金 = 逾期天數 × 類型費率（電子書費率為 0）
         BigDecimal fine = BigDecimal.valueOf(overdueDays * (long) book.finePerDay());

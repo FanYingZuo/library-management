@@ -49,7 +49,7 @@ public class Book {
     /** 是否還有可借份數。電子書不限份數，恆為 true。 */
     public boolean hasAvailableCopy() {
         return !type.isCopyLimited() || availableCopies > 0;
-    }
+    }  
 
     // ── getter / setter ─────────────────────────────────────
 
@@ -114,4 +114,4 @@ public class Book {
         return String.format("[%d] %s / %s（%s，可借 %d/%d）ISBN=%s",
                 id, title, author, type.label(), availableCopies, totalCopies, isbn);
     }
-}
+}  

@@ -18,11 +18,24 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * {@link Loan} 的資料存取物件，另含兩支報表查詢（F6）。
+ * 圖書館系統：借閱紀錄資料存取物件（LoanDAO）
+ * 
+ * 職責說明：
+ * 專責於 Loan 物件與資料庫借閱資料列之間的 CRUD 轉換。
+ * 同時包含系統中的進階統計與報表查詢功能（如 F6 逾期報表與會員借閱排行）。
  */
 public class LoanDAO {
 
-    /** 新增借閱紀錄，回填主鍵並回傳同一物件。 */
+    /**
+     * 新增借閱紀錄。
+     * 執行 SQL 寫入後，會自動取得資料庫產生的自動遞增主鍵（ID），
+     * 回填到傳入的 Loan 物件中，並將該物件回傳。
+     * 內部妥善處理了 Java 的 LocalDate 與資料庫 java.sql.Date 的互轉，
+     * 同時針對可能為 null 的還書日（未還書時）與罰款進行安全防呆。
+     * 
+     * @param loan 包含借閱資訊的 Loan 物件
+     * @return 寫入完成且已回填主鍵 ID 的 Loan 物件
+     */
     public Loan insert(Loan loan) {
         String sql = """
                 INSERT INTO loans (book_id, member_id, loan_date, due_date, return_date, fine)
@@ -34,10 +47,13 @@ public class LoanDAO {
             ps.setLong(2, loan.getMemberId());
             ps.setDate(3, Date.valueOf(loan.getLoanDate()));
             ps.setDate(4, Date.valueOf(loan.getDueDate()));
+            // 尚未還書時 return_date 為 null，若直接轉 Date 會報錯，故需先判斷
             ps.setDate(5, loan.getReturnDate() == null
                     ? null : Date.valueOf(loan.getReturnDate()));
             ps.setBigDecimal(6, loan.getFine());
             ps.executeUpdate();
+            
+            // 取得資料庫自動產生的主鍵並回填
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 if (keys.next()) {
                     loan.setId(keys.getLong(1));
@@ -49,7 +65,12 @@ public class LoanDAO {
         }
     }
 
-    /** 更新借閱紀錄（歸還時寫入 return_date 與 fine）。 */
+    /**
+     * 更新借閱紀錄。
+     * 通常於書籍「歸還」時使用，負責將實際還書日期（return_date）與計算出的罰款金額（fine）寫入資料庫。
+     * 
+     * @param loan 準備更新的借閱紀錄物件
+     */
     public void update(Loan loan) {
         String sql = "UPDATE loans SET return_date = ?, fine = ? WHERE id = ?";
         try (Connection conn = DBUtil.getConnection();
@@ -64,7 +85,13 @@ public class LoanDAO {
         }
     }
 
-    /** 查詢一筆尚未歸還的借閱紀錄。 */
+    /**
+     * 依借閱編號查詢「尚未歸還」的借閱紀錄。
+     * 條件限定 return_date IS NULL，確保只找進行中的借閱。
+     * 
+     * @param loanId 借閱紀錄主鍵 ID
+     * @return 包含 Loan 的 Optional 物件，若找不到或已還書則回傳 empty
+     */
     public Optional<Loan> findActiveById(long loanId) {
         String sql = "SELECT * FROM loans WHERE id = ? AND return_date IS NULL";
         try (Connection conn = DBUtil.getConnection();
@@ -78,7 +105,13 @@ public class LoanDAO {
         }
     }
 
-    /** 會員目前未還書數（用於借閱上限檢查）。 */
+    /**
+     * 統計特定會員目前「未還書」的總數量。
+     * 用於 Service 層進行會員借閱上限的防呆檢查。
+     * 
+     * @param memberId 會員主鍵 ID
+     * @return 尚未歸還的書籍總冊數
+     */
     public int countActiveByMember(long memberId) {
         String sql = "SELECT COUNT(*) FROM loans "
                 + "WHERE member_id = ? AND return_date IS NULL";
@@ -94,8 +127,12 @@ public class LoanDAO {
     }
 
     /**
-     * 會員是否有逾期未還的書（用於逾期封鎖檢查）。
-     * 條件：未歸還且到期日早於今天。
+     * 檢查會員是否有「逾期未還」的書籍。
+     * 條件：未歸還（return_date IS NULL）且到期日早於今天（due_date < CURDATE()）。
+     * 效能優化：使用 SELECT 1 與 LIMIT 1，只要資料庫查到第一筆違規就立刻回傳，不需掃描整張表。
+     * 
+     * @param memberId 會員主鍵 ID
+     * @return 若有逾期未還則回傳 true，否則回傳 false
      */
     public boolean hasOverdue(long memberId) {
         String sql = "SELECT 1 FROM loans "
@@ -112,7 +149,12 @@ public class LoanDAO {
         }
     }
 
-    /** 全部尚未歸還的借閱紀錄。 */
+    /**
+     * 查詢全館所有「尚未歸還」的借閱紀錄。
+     * 結果集會依書籍到期日（due_date）由近到遠進行排序。
+     * 
+     * @return 進行中的借閱清單
+     */
     public List<Loan> findAllActive() {
         String sql = "SELECT * FROM loans WHERE return_date IS NULL ORDER BY due_date";
         try (Connection conn = DBUtil.getConnection();
@@ -128,9 +170,15 @@ public class LoanDAO {
         }
     }
 
-    // ── 報表查詢（F6）────────────────────────────────────────
+    // ── 報表查詢（F6 功能）────────────────────────────────────────
 
-    /** 逾期借閱清單，按逾期天數由多到少排序。 */
+    /**
+     * 產生逾期借閱報表。
+     * 透過 SQL JOIN 串聯借閱表、藏書表與會員表，精準篩選出未還且逾期的紀錄；
+     * 同時利用資料庫內建的 DATEDIFF 函數計算逾期天數，並依逾期天數由多到少排序。
+     * 
+     * @return 包含會員姓名、書名、到期日與逾期天數的報表列清單
+     */
     public List<OverdueReportRow> overdueReport() {
         String sql = """
                 SELECT m.name AS member_name,
@@ -160,7 +208,14 @@ public class LoanDAO {
         }
     }
 
-    /** 會員借閱排行（借閱總次數），取前 N 名。 */
+    /**
+     * 產生會員借閱排行榜。
+     * 透過 JOIN 與 GROUP BY 統計每位會員的總借閱次數，
+     * 依借閱次數由多到少排序，並透過帶入參數的 LIMIT 限制回傳的前 N 名數量。
+     * 
+     * @param limit 要查詢的前幾名（例如前 10 名）
+     * @return 包含會員姓名、會員類型中文標籤與借閱次數的排行清單
+     */
     public List<MemberRankingRow> memberRanking(int limit) {
         String sql = """
                 SELECT m.name AS member_name,
@@ -190,6 +245,17 @@ public class LoanDAO {
         }
     }
 
+    /**
+     * 共用私有方法：資料列對應器（Row Mapper）。
+     * 將資料庫 ResultSet 游標當前列轉換為 Loan 物件。
+     * 內部特別針對可能為 null 的還書日（return_date）與罰款（fine）做安全的防呆檢查：
+     * - 還書日若為 null 則保持 null。
+     * - 罰款若為 null 則自動給予預設值 BigDecimal.ZERO。
+     * 
+     * @param rs 資料庫查詢結果集
+     * @return 轉換完成的 Loan 物件
+     * @throws SQLException 若欄位讀取失敗時拋出
+     */
     private Loan mapRow(ResultSet rs) throws SQLException {
         Date ret = rs.getDate("return_date");
         BigDecimal fine = rs.getBigDecimal("fine");

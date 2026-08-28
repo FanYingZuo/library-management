@@ -1,7 +1,7 @@
 package com.library.model;
 
 /**
- * 逾期借閱報表的一列（F6）。純資料傳輸物件。
+ * 逾期借閱報表的一列（F6）。純資料傳輸物件。  
  *
  * @param memberName  會員姓名
  * @param bookTitle   書名

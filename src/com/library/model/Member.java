@@ -4,7 +4,7 @@ package com.library.model;
  * 會員實體，對應資料表 {@code members} 的一列。
  * 借閱上限與延長借期委派給 {@link MemberType}。
  */
-public class Member {
+public class Member {  
 
     private long id;
     private String memberNo;

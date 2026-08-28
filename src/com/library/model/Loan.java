@@ -51,15 +51,20 @@ public class Loan {
 
     /**
      * 相對於指定日期是否已逾期（僅在尚未歸還時成立）。
-     * @param asOf 判斷基準日，通常為今天
+     * 檢查指定基準日是否已逾期。
+     * 
+     * @param asOf 評估基準日（通常為今日）
+     * @return 若借閱中且超過應還期限則回傳 true
      */
     public boolean isOverdue(LocalDate asOf) {
         return isActive() && asOf.isAfter(dueDate);
     }
 
     /**
-     * 相對於指定日期的逾期天數；未逾期回傳 0。
-     * @param asOf 判斷基準日，通常為今天
+     * 計算相對於基準日的逾期天數。
+     * 
+     * @param asOf 評估基準日（通常為今日）
+     * @return 逾期天數；若未逾期則回傳 0
      */
     public long overdueDays(LocalDate asOf) {
         long days = ChronoUnit.DAYS.between(dueDate, asOf);
@@ -75,8 +80,6 @@ public class Loan {
         this.returnDate = returnDate;
         this.fine = fine == null ? BigDecimal.ZERO : fine;
     }
-
-    // ── getter / setter ─────────────────────────────────────
 
     public long getId() {
         return id;

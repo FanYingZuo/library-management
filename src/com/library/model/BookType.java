@@ -34,7 +34,7 @@ public enum BookType {
 
     /** 逾期罰金費率（元／天）。電子書為 0。 */
     public int finePerDay() {
-        return finePerDay;
+        return finePerDay;  
     }
 
     /**

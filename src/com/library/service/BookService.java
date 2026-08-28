@@ -3,12 +3,14 @@ package com.library.service;
 import com.library.dao.BookDAO;
 import com.library.exception.DuplicateIsbnException;
 import com.library.model.Book;
+import com.library.model.BookType;
+
 import java.util.List;
 import java.util.Optional;
 
 /**
  * 藏書管理業務邏輯（F1）。
- * <p>負責輸入驗證與重複檢查，通過後才委派 DAO 落庫。
+ * 負責輸入驗證與重複檢查，通過後才委派 DAO 落庫。
  */
 public class BookService {
 
@@ -55,6 +57,11 @@ public class BookService {
         return bookDao.findAll();
     }
 
+    
+    /** 組合條件查詢（F5）。 */
+    public List<Book> search(String title, String author, BookType type) {
+        return bookDao.search(title, author, type);
+    }
 
     private void requireText(String value, String message) {
         if (value == null || value.isBlank()) {
