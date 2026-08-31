@@ -28,6 +28,7 @@ public class LoanDAO {
 
     /**
      * 新增借閱紀錄。
+     * 支援 F3 借書：三道檢查 ＋ 到期日 ＋ 份數 −1
      * 執行 SQL 寫入後，會自動取得資料庫產生的自動遞增主鍵（ID），
      * 回填到傳入的 Loan 物件中，並將該物件回傳。
      * 內部妥善處理了 Java 的 LocalDate 與資料庫 java.sql.Date 的互轉，
@@ -68,6 +69,7 @@ public class LoanDAO {
     /**
      * 更新借閱紀錄。
      * 通常於書籍「歸還」時使用，負責將實際還書日期（return_date）與計算出的罰款金額（fine）寫入資料庫。
+     * 支援 F4 還書：逾期判斷 ＋ 罰金 ＋ 份數 ＋1
      * 
      * @param loan 準備更新的借閱紀錄物件
      */
@@ -82,6 +84,25 @@ public class LoanDAO {
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new DataAccessException("更新借閱紀錄失敗", e);
+        }
+    }
+
+    /**
+     * 更新借閱紀錄的應還期限（到期日）。
+     * 用於會員「續借」成功時延長借期。
+     *
+     * @param loanId     借閱單 ID
+     * @param newDueDate 新的應還期限
+     */
+    public void updateDueDate(long loanId, java.time.LocalDate newDueDate) {
+        String sql = "UPDATE loans SET due_date = ? WHERE id = ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(newDueDate));
+            ps.setLong(2, loanId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new DataAccessException("更新借閱到期日失敗", e);
         }
     }
 
@@ -102,6 +123,27 @@ public class LoanDAO {
             }
         } catch (SQLException e) {
             throw new DataAccessException("查詢借閱紀錄失敗", e);
+        }
+    }
+
+    /**
+     * 查詢特定會員當前是否正在借閱特定書籍（未還）。
+     *
+     * @param bookId   書籍 ID
+     * @param memberId 會員 ID
+     * @return 包含 Loan 的 Optional 物件
+     */
+    public Optional<Loan> findActiveByBookAndMember(long bookId, long memberId) {
+        String sql = "SELECT * FROM loans WHERE book_id = ? AND member_id = ? AND return_date IS NULL";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, bookId);
+            ps.setLong(2, memberId);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? Optional.of(mapRow(rs)) : Optional.empty();
+            }
+        } catch (SQLException e) {
+            throw new DataAccessException("查詢會員特定借閱失敗", e);
         }
     }
 
@@ -170,7 +212,40 @@ public class LoanDAO {
         }
     }
 
-    // ── 報表查詢（F6 功能）────────────────────────────────────────
+    /**
+     * 查詢全館所有「尚未歸還」的借閱詳細紀錄（JOIN 書籍與會員以取得書名與姓名）。
+     */
+    public List<com.library.model.ActiveLoanDetail> findAllActiveDetails() {
+        String sql = """
+                SELECT l.id, l.book_id, b.title AS book_title,
+                       l.member_id, m.name AS member_name,
+                       l.loan_date, l.due_date
+                FROM loans l
+                JOIN books b   ON b.id = l.book_id
+                JOIN members m ON m.id = l.member_id
+                WHERE l.return_date IS NULL
+                ORDER BY l.due_date, l.id""";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            List<com.library.model.ActiveLoanDetail> list = new ArrayList<>();
+            while (rs.next()) {
+                list.add(new com.library.model.ActiveLoanDetail(
+                        rs.getLong("id"),
+                        rs.getLong("book_id"),
+                        rs.getString("book_title"),
+                        rs.getLong("member_id"),
+                        rs.getString("member_name"),
+                        rs.getDate("loan_date").toLocalDate(),
+                        rs.getDate("due_date").toLocalDate()));
+            }
+            return list;
+        } catch (SQLException e) {
+            throw new DataAccessException("列出未歸還詳細借閱紀錄失敗", e);
+        }
+    }
+
+    // ── 報表查詢（F6 報表：逾期清單 ＋ 借閱排行）────────────────────────────────────────
 
     /**
      * 產生逾期借閱報表。

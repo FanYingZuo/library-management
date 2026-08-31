@@ -7,8 +7,10 @@ import com.library.model.Member;
  */
 public class BorrowLimitExceededException extends LibraryException {
 
+    private static final long serialVersionUID = 1L;
+
     public BorrowLimitExceededException(Member member) {
-        super(member.getName() + " 已達同時借書上限 "
-                + member.borrowLimit() + " 本，請先還書再借");
+        super(member.getName() + " 已達借閱上限 "
+                + member.borrowLimit() + " 本，請先還書");
     }
 }

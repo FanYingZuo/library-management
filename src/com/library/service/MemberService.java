@@ -7,6 +7,9 @@ import com.library.model.Member;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * 會員管理業務邏輯（F2 會員：新增兩種身份 → 查詢）。
+ */
 public class MemberService {
 
     // 資料存取物件（使用 final 確保初始化後不可變，保障執行緒安全與依賴穩定）
@@ -20,7 +23,7 @@ public class MemberService {
     }
 
     /**
-     * 新增會員。
+     * 新增會員（F2 會員：新增兩種身份 → 查詢）。
      * 執行商業規則驗證（防範空值、未指定身份與編號重複），通過後才寫入資料庫。
      * 
      * @throws IllegalArgumentException     欄位不合法（空值或未選身份）

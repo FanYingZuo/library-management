@@ -1,2 +1,3 @@
-	# 資料庫連線設定檔，不會被提交
-	src/db.properties
+# 資料庫連線設定檔，不會被提交
+src/db.properties
+bin/

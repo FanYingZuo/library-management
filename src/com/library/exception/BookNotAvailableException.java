@@ -7,7 +7,9 @@ import com.library.model.Book;
  */
 public class BookNotAvailableException extends LibraryException {
 
+    private static final long serialVersionUID = 1L;
+
     public BookNotAvailableException(Book book) {
-        super("《" + book.getTitle() + "》目前已無可借館藏，請稍後再試");
+        super("《" + book.getTitle() + "》目前已無可借館藏（可借 0 份），請稍後再試或辦理預約");
     }
 }

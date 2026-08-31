@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 藏書管理業務邏輯（F1）。
+ * 藏書管理業務邏輯（F1 藏書：新增 → 列表 → 依 ISBN 查詢）。
  * 負責輸入驗證與重複檢查，通過後才委派 DAO 落庫。
  */
 public class BookService {
@@ -58,7 +58,7 @@ public class BookService {
     }
 
     
-    /** 組合條件查詢（F5）。 */
+    /** 組合條件查詢（F5 查詢：書名／作者／類型任意組合）。 */
     public List<Book> search(String title, String author, BookType type) {
         return bookDao.search(title, author, type);
     }

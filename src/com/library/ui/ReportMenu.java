@@ -6,6 +6,8 @@ import com.library.service.LoanService;
 import com.library.model.OverdueReportRow;
 import com.library.model.MemberRankingRow;
 
+// 報表選單介面，負責接收使用者輸入並調用 LoanService 輸出統計報表
+// 支援 F6 報表：逾期清單 ＋ 借閱排行
 public class ReportMenu {
 
     private final LoanService loanService;
@@ -43,50 +45,49 @@ public class ReportMenu {
 
     /** 
      * 逾期借閱清單報表（按逾期天數由多到少排序）
+     * F6 報表：逾期清單 ＋ 借閱排行
      * 採用防禦性檢查（Guard Clause），若無資料則提早返回；有資料則逐筆格式化印出細節。
      */
     private void overdueReport() {
-        List<OverdueReportRow> rows = loanService.overdueReport();
+        List<OverdueReportRow> overdueList = loanService.overdueReport();
         
         // 防禦性檢查：若清單為空則提早返回（Early Return），避免印出空白報表
-        if (rows.isEmpty()) {
+        if (overdueList.isEmpty()) {
             System.out.println("（目前無逾期借閱）");
             return;
         }
         
         System.out.println("逾期借閱清單（按逾期天數）：");
-       for (OverdueReportRow r : rows)
-//                           | |   └─ 1. 要走訪的來源清單（總共有一堆逾期資料）
-//                           | └─ 2. 冒號代表「在...裡面」 (In)
-//                           └─ 3. 每次從清單拿出來放的「暫時變數」（型態是 OverdueReportRow，名字叫 r
+        for (OverdueReportRow overdueRow : overdueList) {
             // 使用 printf 進行排版，精準帶入會員名稱、書名、應還日與逾期天數
             System.out.printf("  %s — 《%s》 應還 %s，逾期 %d 天%n",
-                    r.memberName(), r.bookTitle(), r.dueDate(), r.overdueDays());
+                    overdueRow.memberName(), overdueRow.bookTitle(), overdueRow.dueDate(), overdueRow.overdueDays());
         }
-    
+    }
 
     /**
      * 會員借閱排行報表
+     * F6 報表：逾期清單 ＋ 借閱排行
      * 利用外部計數器（rank）在迴圈中動態累加名次，直覺呈現會員的借閱活躍度。
      */
     private void memberRanking() {
-        List<MemberRankingRow> rows = loanService.memberRanking();
+        List<MemberRankingRow> rankingList = loanService.memberRanking();
         
         // 防禦性檢查：若無借閱紀錄則提早返回
-        if (rows.isEmpty()) {
+        if (rankingList.isEmpty()) {
             System.out.println("（尚無借閱紀錄）");
             return;
         }
         
         System.out.println("會員借閱排行：");
         int rank = 1; // 初始化名次計數器->從第 1 名開始數
-        for (MemberRankingRow r : rows) {
+        for (MemberRankingRow rankingRow : rankingList) {
             // 使用 rank++ 邊印出名次邊遞增，並顯示會員姓名、身分別與借閱次數
             System.out.printf("  %d. %s（%s）— %d 次%n",
-                    rank++,          // 印出當前名次，印完之後 rank 自動加 1 (變成 2, 3...) ->%d
-                    r.memberName(),  // 會員姓名   ->%s
-                    r.memberType(),  // 會員身分別 ->%s
-                    r.loanCount());  // 借閱次數   ->%d
+                    rank++,                  // 印出當前名次，印完之後 rank 自動加 1
+                    rankingRow.memberName(),  // 會員姓名
+                    rankingRow.memberType(),  // 會員身分別
+                    rankingRow.loanCount());  // 借閱次數
         }
     }
 }

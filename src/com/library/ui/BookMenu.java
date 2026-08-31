@@ -7,6 +7,7 @@ import com.library.model.BookType;
 import com.library.service.BookService;
 
 // 藏書管理選單介面，負責接收使用者輸入並調用 BookService 處理藏書相關操作
+// 支援 F1 藏書：新增 → 列表 → 依 ISBN 查詢 與 F5 查詢：書名／作者／類型任意組合
 public class BookMenu {
 
     private final BookService bookService;
@@ -40,6 +41,7 @@ public class BookMenu {
         }
     }
 
+    // F1 藏書：新增 → 列表 → 依 ISBN 查詢
     // 收集使用者輸入的新書資訊，呼叫 Service 新增藏書，並處理例外錯誤
     private void addBook() {
         try {
@@ -56,24 +58,25 @@ public class BookMenu {
         }
     }
 
+    // F1 藏書：新增 → 列表 → 依 ISBN 查詢
     // 依據輸入的 ISBN 查詢書籍並印出結果
-    
     /* * .ifPresentOrElse()
     *有值時要執行的動作 (Consumer), 
     *沒值時要執行的動作 (Runnable)    */
-     
     private void findBookByIsbn() {
         String isbn = InputHandler.input("ISBN");
         bookService.findByIsbn(isbn).ifPresentOrElse(
-                b -> System.out.println("  " + b),      // 有東西時執行
+                book -> System.out.println("  " + book),      // 有東西時執行
                 () -> System.out.println("查無此書"));// 是空的時執行
     }
 
+    // F1 藏書：新增 → 列表 → 依 ISBN 查詢
     // 取得所有藏書清單並印出
     private void listBooks() {
         printBookList(bookService.listAll());
     }
 
+    // F5 查詢：書名／作者／類型任意組合
     // 接收選擇性的組合查詢條件，呼叫 Service 進行多條件搜尋並印出結果
     private void searchBooks() {
         System.out.println("（直接按 Enter 代表該條件不限）");
@@ -90,6 +93,6 @@ public class BookMenu {
             return;
         }
         System.out.println("共 " + books.size() + " 筆：");
-        books.forEach(b -> System.out.println("  " + b)); // 跑forEach把每本books裡的書依序交給 b，並印出帶有空白的結果
+        books.forEach(book -> System.out.println("  " + book)); // 跑forEach把每本books裡的書依序交給 book，並印出帶有空白的結果
     }
 }

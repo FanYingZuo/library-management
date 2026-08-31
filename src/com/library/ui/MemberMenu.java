@@ -5,6 +5,8 @@ import com.library.model.MemberType;
 import com.library.service.MemberService;
 import com.library.model.Member;
 
+// 會員管理選單介面，負責接收使用者輸入並調用 MemberService 處理會員相關操作
+// 支援 F2 會員：新增兩種身份 → 查詢
 public class MemberMenu {
 
     private final MemberService memberService;
@@ -34,7 +36,7 @@ public class MemberMenu {
                 case "1" -> addMember();
                 case "2" -> findMember();
                 // 行內簡化：直接取得清單並用 Lambda 走訪印出每一筆會員資料
-                case "3" -> memberService.listAll().forEach(m -> System.out.println("  " + m));
+                case "3" -> memberService.listAll().forEach(member -> System.out.println("  " + member));
                 case "9" -> {
                     return; // 結束方法，返回上一層選單
                 }
@@ -44,17 +46,17 @@ public class MemberMenu {
     }
 
     /**
-     * 執行新增會員流程
+     * 執行新增會員流程（F2 會員：新增兩種身份 → 查詢）
      * 依序收集編號、姓名、列舉型態（MemberType）與選填的電子郵件，建立物件後交由 Service 處理，並防範例外。
      */
     private void addMember() {
         try {
-            String no = InputHandler.input("會員編號");
+            String memberNo = InputHandler.input("會員編號");
             String name = InputHandler.input("姓名");
             MemberType type = InputHandler.inputMemberType();
             String email = InputHandler.inputOptional("電子郵件"); // 允許空白的選填欄位
             
-            Member member = memberService.addMember(new Member(no, name, type, email));
+            Member member = memberService.addMember(new Member(memberNo, name, type, email));
             System.out.printf("✔ 新增成功：%s（%s）%n", member.getName(), type.label());
         } catch (LibraryException | IllegalArgumentException e) {
             // 攔截自定義例外或非法引數，印出錯誤訊息而不讓系統崩潰
@@ -63,14 +65,14 @@ public class MemberMenu {
     }
 
     /**
-     * 依會員編號查詢
+     * 依會員編號查詢（F2 會員：新增兩種身份 → 查詢）
      * 運用 Java Optional 的函數式寫法，優雅地處理「有找到物件」與「查無資料」兩種分支，避免 NullPointerException。
      */
     private void findMember() {
-        String no = InputHandler.input("會員編號");
-        memberService.findByMemberNo(no).ifPresentOrElse(      //ifPresentOrElse
-                m -> System.out.println("  " + m),             // 若存在（Present）：印出會員資訊
+        String memberNo = InputHandler.input("會員編號");
+        memberService.findByMemberNo(memberNo).ifPresentOrElse(      //ifPresentOrElse
+                member -> System.out.println("  " + member),             // 若存在（Present）：印出會員資訊
                 () -> System.out.println("查無此會員")       // 若不存在（Else）：印出提示
         );                                                    
     }                                                       
-}                                                                                                                        
+}

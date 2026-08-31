@@ -72,6 +72,16 @@ public class Loan {
     }
 
     /**
+     * 計算相對於基準日，距離到期日還剩幾天。
+     * 
+     * @param asOf 評估基準日（通常為今日）
+     * @return 距離到期日的剩餘天數（正數代表尚未到期天數，負數或 0 代表已到期或逾期）
+     */
+    public long daysRemaining(LocalDate asOf) {
+        return ChronoUnit.DAYS.between(asOf, dueDate);
+    }
+
+    /**
      * 結算歸還：設定歸還日與罰金。
      * @param returnDate 歸還日期
      * @param fine       結算後的罰金金額
